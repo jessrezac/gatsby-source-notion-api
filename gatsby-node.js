@@ -8,45 +8,56 @@ const NOTION_NODE_TYPE = "Notion"
 
 exports.sourceNodes = async (
 	{ actions, createContentDigest, createNodeId, reporter },
-	{ token, databaseId, propsToFrontmatter = true, lowerTitleLevel = true },
+	{ token, databaseOptions, propsToFrontmatter = true, lowerTitleLevel = true },
 ) => {
-	const pages = await getPages({ token, databaseId }, reporter)
+	const databases = Array.isArray(databaseOptions) ? databaseOptions : [{id: databaseOptions}];
 
-	pages.forEach((page) => {
-		const title = getNotionPageTitle(page)
-		const properties = getNotionPageProperties(page)
-		let markdown = notionBlockToMarkdown(page, lowerTitleLevel)
+	databases.forEach((database) => {
 
-		if (propsToFrontmatter) {
-			const frontmatter = Object.keys(properties).reduce(
-				(acc, key) => ({
-					...acc,
-					[key]: properties[key].value.remoteImage || properties[key].value,
-				}),
-				{ title },
-			)
+		const databaseId = database.id
+		const databaseNodeType = database.node_type || NOTION_NODE_TYPE
 
-			markdown = "---\n".concat(YAML.stringify(frontmatter)).concat("\n---\n\n").concat(markdown)
-		}
+		const pages = await getPages({ token, databaseId }, reporter)
 
-		actions.createNode({
-			id: createNodeId(`${NOTION_NODE_TYPE}-${page.id}`),
-			title,
-			properties,
-			archived: page.archived,
-			createdAt: page.created_time,
-			updatedAt: page.last_edited_time,
-			markdownString: markdown,
-			raw: page,
-			json: JSON.stringify(page),
-			parent: null,
-			children: [],
-			internal: {
-				type: NOTION_NODE_TYPE,
-				mediaType: "text/markdown",
-				content: markdown,
-				contentDigest: createContentDigest(page),
-			},
+		pages.forEach((page) => {
+			const title = getNotionPageTitle(page)
+			const properties = getNotionPageProperties(page)
+			let markdown = notionBlockToMarkdown(page, lowerTitleLevel)
+
+			if (propsToFrontmatter) {
+				const frontmatter = Object.keys(properties).reduce(
+					(acc, key) => ({
+						...acc,
+						[key.toLowerCase()]: properties[key].value.remoteImage || properties[key].value,
+					}),
+					{ title },
+				)
+
+				markdown = "---\n".concat(YAML.stringify(frontmatter)).concat("\n---\n\n").concat(markdown)
+			}
+
+			actions.createNode({
+				id: createNodeId(`${databaseNodeType}-${page.id}`),
+				notionId: page.id,
+				title,
+				properties,
+				archived: page.archived,
+				createdAt: page.created_time,
+				updatedAt: page.last_edited_time,
+				markdownString: markdown,
+				raw: page,
+				json: JSON.stringify(page),
+				parent: null,
+				children: [],
+				internal: {
+					type: databaseNodeType,
+					mediaType: "text/markdown",
+					content: markdown,
+					contentDigest: createContentDigest(page),
+				},
+			})
 		})
 	})
+
+
 }
