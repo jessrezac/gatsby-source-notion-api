@@ -12,12 +12,12 @@ exports.sourceNodes = async (
 ) => {
 	const databases = Array.isArray(databaseOptions) ? databaseOptions : [{id: databaseOptions}];
 
-	databases.forEach((database) => {
+	await databases.forEach((database) => {
 
 		const databaseId = database.id
-		const databaseNodeType = database.node_type || NOTION_NODE_TYPE
+		const databaseNodeType = database.nodeType || NOTION_NODE_TYPE
 
-		const pages = await getPages({ token, databaseId }, reporter)
+		const pages = getPages({ token, databaseId }, reporter)
 
 		pages.forEach((page) => {
 			const title = getNotionPageTitle(page)
